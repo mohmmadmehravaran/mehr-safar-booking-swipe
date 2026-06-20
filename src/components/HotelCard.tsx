@@ -58,12 +58,18 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     swiped.current = false;
+    // قفل کردن رویدادهای pointer روی همین کانتینر تا حرکت/رهاکردن ماوس حتماً اینجا ثبت شود
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const finishDrag = (clientX: number, clientY: number) => {
     if (dragStartX.current === null || dragStartY.current === null) return;
-    const dx = e.clientX - dragStartX.current;
-    const dy = e.clientY - dragStartY.current;
+    const dx = clientX - dragStartX.current;
+    const dy = clientY - dragStartY.current;
     dragStartX.current = null;
     dragStartY.current = null;
     const SWIPE_THRESHOLD = 40;
@@ -77,6 +83,15 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
       const dir = dx > 0 ? -1 : 1;
       return (Math.min(c, len - 1) + dir + len) % len;
     });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
+    finishDrag(e.clientX, e.clientY);
   };
 
   // بعد از سوایپ، مرورگر یک کلیک تولید می‌کند؛ آن را لغو کن تا <Link> ناوبری نکند.
@@ -109,6 +124,7 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
           style={{ height: theme.sizes.cardImageHeight }}
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
+          onPointerCancel={() => { dragStartX.current = null; dragStartY.current = null; }}
           onClickCapture={handleClickCapture}
         >
           {images.map((img, i) => (
