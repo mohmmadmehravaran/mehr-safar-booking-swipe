@@ -55,6 +55,8 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
   const handlePointerDown = (e: React.PointerEvent) => {
     // فقط دکمه اصلی ماوس / لمس / قلم
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // اگر روی دکمه‌های فلش یا نقطه‌ها فشار داده شد، کاری نکن تا خودِ دکمه کار کند
+    if ((e.target as HTMLElement).closest('button')) return;
     dragStartX.current = e.clientX;
     dragStartY.current = e.clientY;
     swiped.current = false;
@@ -125,6 +127,7 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={() => { dragStartX.current = null; dragStartY.current = null; }}
+          onDragStart={(e) => e.preventDefault()}
           onClickCapture={handleClickCapture}
         >
           {images.map((img, i) => (
