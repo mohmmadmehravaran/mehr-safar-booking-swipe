@@ -1,8 +1,10 @@
-import { Plus, Trash2, ArrowUp, ArrowDown, LayoutGrid, Rows3, Columns3, Hotel, MapPin, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, ArrowUp, ArrowDown, LayoutGrid, Rows3, Columns3, Hotel, MapPin, Image as ImageIcon, ExternalLink, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { useCards } from '../../context/CardsContext';
 import { useApp } from '../../context/AppContext';
 import { BIG_CITIES } from '../../data/iranCities';
 import { SiteCard, SiteCardType } from '../../types';
+import { fileToCompressedDataURL } from '../../utils/image';
 
 const TYPE_OPTIONS: { value: SiteCardType; label: string; icon: React.ReactNode }[] = [
   { value: 'hotel', label: 'هتل', icon: <Hotel className="w-4 h-4" /> },
@@ -138,6 +140,25 @@ function CardEditor({
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        setUploading(true);
+        const dataUrl = await fileToCompressedDataURL(file, 1200, 0.8);
+        onChange({ image: dataUrl });
+      } catch {
+        /* noop */
+      } finally {
+        setUploading(false);
+      }
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   return (
     <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/60">
       <div className="flex items-center justify-between mb-3">
@@ -216,12 +237,24 @@ function CardEditor({
           placeholder="زیرعنوان (اختیاری)"
           className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-300"
         />
-        <input
-          value={card.image}
-          onChange={(e) => onChange({ image: e.target.value })}
-          placeholder="آدرس عکس (URL)"
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-300"
-        />
+        <div className="flex gap-2 sm:col-span-1">
+          <input
+            value={card.image.startsWith('data:') ? '' : card.image}
+            onChange={(e) => onChange({ image: e.target.value })}
+            placeholder={card.image.startsWith('data:') ? 'عکس آپلود شد ✓' : 'آدرس عکس (URL)'}
+            className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-300"
+          />
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} className="hidden" />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            title="آپلود عکس از دستگاه"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-colors"
+          >
+            <Upload className="w-4 h-4" /> {uploading ? '...' : 'آپلود'}
+          </button>
+        </div>
         <div className="relative">
           <input
             value={card.link}
