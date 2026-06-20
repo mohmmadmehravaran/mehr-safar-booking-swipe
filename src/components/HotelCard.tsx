@@ -86,7 +86,9 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
       if (d.axis === 'v') { d.active = false; return; } // حرکت عمودی → بگذار صفحه اسکرول شود
     }
     if (d.axis !== 'h') return;
-    // اسکراب پیوسته: به‌ازای هر STEP پیکسل حرکت، یک عکس جلو/عقب
+    // فقط دسکتاپ (ماوس): اسکراب پیوسته حین نگه‌داشتن و حرکت.
+    // موبایل (لمس): اینجا کاری نمی‌کنیم؛ یک سوایپ ساده در پایان حساب می‌شود.
+    if (e.pointerType !== 'mouse') return;
     let move = e.clientX - d.lastX;
     while (Math.abs(move) >= STEP) {
       const fwd = move > 0;
@@ -101,10 +103,17 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
     if (e.pointerType === 'mouse') {
       try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
     }
-    // اگر کشیدن کوتاه افقی بود ولی به آستانه نرسید، یک عکس ورق بزن
-    if (d.active && d.axis === 'h' && !swiped.current) {
+    if (d.active && d.axis !== 'v') {
       const dx = e.clientX - d.x;
-      if (Math.abs(dx) >= 30) step(dx > 0 ? -1 : 1);
+      const dy = e.clientY - d.y;
+      if (e.pointerType === 'mouse') {
+        // دسکتاپ: اگر کشیدن کوتاه بود و هنوز عکسی عوض نشده، یک عکس ورق بزن
+        if (!swiped.current && Math.abs(dx) >= 30 && Math.abs(dx) > Math.abs(dy)) step(dx > 0 ? -1 : 1);
+      } else {
+        // موبایل: یک سوایپ ساده = یک عکس (بدون نیاز به نگه‌داشتن)
+        const TOUCH_THRESHOLD = 35;
+        if (Math.abs(dx) >= TOUCH_THRESHOLD && Math.abs(dx) > Math.abs(dy)) step(dx > 0 ? -1 : 1);
+      }
     }
     d.active = false;
     d.axis = null;
