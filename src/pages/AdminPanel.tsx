@@ -2,7 +2,7 @@ import { useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Hotel, CalendarDays, MessageSquare, LogIn, Plus, Edit2, Trash2, Check, X, Eye, Star,
-  DollarSign, AlertCircle, Paintbrush, Users, Phone, Mail, Search
+  DollarSign, AlertCircle, Paintbrush, Users, Phone, Mail, Search, LayoutGrid
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
@@ -11,10 +11,11 @@ import { formatJalali } from '../utils/date';
 import { PROVINCE_NAMES, getCitiesForProvince, findProvinceOfCity } from '../data/iranCities';
 import { motion, AnimatePresence } from 'framer-motion';
 import AppearancePanel from '../components/admin/AppearancePanel';
+import CardsManager from '../components/admin/CardsManager';
 import { useDocumentTitle } from '../utils/useDocumentTitle';
 import { fileToCompressedDataURL } from '../utils/image';
 
-type Tab = 'dashboard' | 'hotels' | 'bookings' | 'users' | 'reviews' | 'appearance';
+type Tab = 'dashboard' | 'hotels' | 'bookings' | 'users' | 'reviews' | 'cards' | 'appearance';
 
 export default function AdminPanel() {
   const navigate = useNavigate();
@@ -209,6 +210,7 @@ export default function AdminPanel() {
     { id: 'bookings', label: 'رزروها', icon: <CalendarDays className="w-5 h-5" /> },
     { id: 'users', label: 'کاربران', icon: <Users className="w-5 h-5" /> },
     { id: 'reviews', label: 'نظرات', icon: <MessageSquare className="w-5 h-5" /> },
+    { id: 'cards', label: 'کارت‌ها', icon: <LayoutGrid className="w-5 h-5" /> },
     { id: 'appearance', label: 'ظاهر سایت', icon: <Paintbrush className="w-5 h-5" /> },
   ];
 
@@ -701,6 +703,12 @@ export default function AdminPanel() {
                     })}
                     {reviews.length === 0 && <p className="text-sm text-gray-500 text-center py-8">نظری ثبت نشده</p>}
                   </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'cards' && (
+                <motion.div key="cards" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                  <CardsManager />
                 </motion.div>
               )}
 
