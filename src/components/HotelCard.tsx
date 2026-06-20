@@ -46,39 +46,40 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
     setCurrent(i);
   };
 
-  // ── Touch / swipe support for mobile ("ورق زدن" با کشیدن انگشت) ──
-  const touchStartX = useRef<number | null>(null);
-  const touchStartY = useRef<number | null>(null);
+  // ── Drag / swipe support for mobile AND desktop ("ورق زدن" با کشیدن انگشت یا ماوس) ──
+  // Pointer Events پوشش می‌دهند: لمس روی موبایل و کشیدن با ماوس روی دسکتاپ.
+  const dragStartX = useRef<number | null>(null);
+  const dragStartY = useRef<number | null>(null);
   const swiped = useRef(false);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStartX.current = t.clientX;
-    touchStartY.current = t.clientY;
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // فقط دکمه اصلی ماوس / لمس / قلم
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragStartX.current = e.clientX;
+    dragStartY.current = e.clientY;
     swiped.current = false;
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartX.current;
-    const dy = t.clientY - touchStartY.current;
-    touchStartX.current = null;
-    touchStartY.current = null;
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (dragStartX.current === null || dragStartY.current === null) return;
+    const dx = e.clientX - dragStartX.current;
+    const dy = e.clientY - dragStartY.current;
+    dragStartX.current = null;
+    dragStartY.current = null;
     const SWIPE_THRESHOLD = 40;
-    // Only a clearly horizontal drag counts as a swipe (so vertical scrolling still works).
+    // فقط کشیدن واضحاً افقی به‌عنوان سوایپ حساب می‌شود (تا اسکرول عمودی به‌هم نخورد).
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
     if (images.length <= 1) return;
-    swiped.current = true; // mark so the following click does not open the hotel page
+    swiped.current = true; // علامت بزن تا کلیک بعدی صفحه هتل را باز نکند
     setCurrent((c) => {
       const len = images.length;
-      // RTL: swipe left-to-right → previous image, right-to-left → next image.
+      // RTL: کشیدن چپ‌به‌راست → عکس قبلی، راست‌به‌چپ → عکس بعدی.
       const dir = dx > 0 ? -1 : 1;
       return (Math.min(c, len - 1) + dir + len) % len;
     });
   };
 
-  // After a swipe the browser fires a click; cancel it so the <Link> doesn't navigate.
+  // بعد از سوایپ، مرورگر یک کلیک تولید می‌کند؛ آن را لغو کن تا <Link> ناوبری نکند.
   const handleClickCapture = (e: React.MouseEvent) => {
     if (swiped.current) {
       e.preventDefault();
@@ -104,10 +105,10 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
       <Link to={`/hotel/${hotel.id}`} className="block">
         {/* Image carousel */}
         <div
-          className="relative overflow-hidden touch-pan-y select-none"
+          className="relative overflow-hidden touch-pan-y select-none cursor-grab active:cursor-grabbing"
           style={{ height: theme.sizes.cardImageHeight }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
           onClickCapture={handleClickCapture}
         >
           {images.map((img, i) => (
