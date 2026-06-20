@@ -46,57 +46,71 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
     setCurrent(i);
   };
 
-  // ── Drag / swipe support for mobile AND desktop ("ورق زدن" با کشیدن انگشت یا ماوس) ──
-  // Pointer Events پوشش می‌دهند: لمس روی موبایل و کشیدن با ماوس روی دسکتاپ.
-  const dragStartX = useRef<number | null>(null);
-  const dragStartY = useRef<number | null>(null);
+  // ── Drag scrubbing for mobile AND desktop ──
+  // کاربر کلیک/لمس را نگه می‌دارد و با حرکت چپ↔راست، عکس‌ها پشت‌سرهم ورق می‌خورند.
+  const drag = useRef<{ x: number; y: number; lastX: number; active: boolean; axis: null | 'h' | 'v' }>(
+    { x: 0, y: 0, lastX: 0, active: false, axis: null }
+  );
   const swiped = useRef(false);
+  const STEP = 55; // هر این مقدار حرکت افقی → یک عکس جلو/عقب
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    // فقط دکمه اصلی ماوس / لمس / قلم
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    // اگر روی دکمه‌های فلش یا نقطه‌ها فشار داده شد، کاری نکن تا خودِ دکمه کار کند
-    if ((e.target as HTMLElement).closest('button')) return;
-    dragStartX.current = e.clientX;
-    dragStartY.current = e.clientY;
-    swiped.current = false;
-    // قفل کردن رویدادهای pointer روی همین کانتینر تا حرکت/رهاکردن ماوس حتماً اینجا ثبت شود
-    try {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {
-      /* noop */
-    }
-  };
-
-  const finishDrag = (clientX: number, clientY: number) => {
-    if (dragStartX.current === null || dragStartY.current === null) return;
-    const dx = clientX - dragStartX.current;
-    const dy = clientY - dragStartY.current;
-    dragStartX.current = null;
-    dragStartY.current = null;
-    const SWIPE_THRESHOLD = 40;
-    // فقط کشیدن واضحاً افقی به‌عنوان سوایپ حساب می‌شود (تا اسکرول عمودی به‌هم نخورد).
-    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
-    if (images.length <= 1) return;
+  const step = (dir: number) => {
     swiped.current = true; // علامت بزن تا کلیک بعدی صفحه هتل را باز نکند
     setCurrent((c) => {
       const len = images.length;
-      // RTL: کشیدن چپ‌به‌راست → عکس قبلی، راست‌به‌چپ → عکس بعدی.
-      const dir = dx > 0 ? -1 : 1;
       return (Math.min(c, len - 1) + dir + len) % len;
     });
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* noop */
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return; // فقط کلیک چپ
+    if ((e.target as HTMLElement).closest('button')) return; // فلش/نقطه‌ها خودشان کار کنند
+    if (images.length <= 1) return;
+    drag.current = { x: e.clientX, y: e.clientY, lastX: e.clientX, active: true, axis: null };
+    swiped.current = false;
+    // فقط برای ماوس قفل کن (تا روی موبایل اسکرول عمودی آزاد بماند)
+    if (e.pointerType === 'mouse') {
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
     }
-    finishDrag(e.clientX, e.clientY);
   };
 
-  // بعد از سوایپ، مرورگر یک کلیک تولید می‌کند؛ آن را لغو کن تا <Link> ناوبری نکند.
+  const handlePointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    // تعیین جهت حرکت در اولین جابه‌جایی محسوس
+    if (d.axis === null) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      d.axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
+      if (d.axis === 'v') { d.active = false; return; } // حرکت عمودی → بگذار صفحه اسکرول شود
+    }
+    if (d.axis !== 'h') return;
+    // اسکراب پیوسته: به‌ازای هر STEP پیکسل حرکت، یک عکس جلو/عقب
+    let move = e.clientX - d.lastX;
+    while (Math.abs(move) >= STEP) {
+      const fwd = move > 0;
+      step(fwd ? -1 : 1); // RTL: حرکت به راست → عکس قبلی، به چپ → عکس بعدی
+      d.lastX += fwd ? STEP : -STEP;
+      move = e.clientX - d.lastX;
+    }
+  };
+
+  const endDrag = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (e.pointerType === 'mouse') {
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    }
+    // اگر کشیدن کوتاه افقی بود ولی به آستانه نرسید، یک عکس ورق بزن
+    if (d.active && d.axis === 'h' && !swiped.current) {
+      const dx = e.clientX - d.x;
+      if (Math.abs(dx) >= 30) step(dx > 0 ? -1 : 1);
+    }
+    d.active = false;
+    d.axis = null;
+  };
+
+  // بعد از کشیدن، مرورگر یک کلیک تولید می‌کند؛ آن را لغو کن تا <Link> ناوبری نکند.
   const handleClickCapture = (e: React.MouseEvent) => {
     if (swiped.current) {
       e.preventDefault();
@@ -125,8 +139,9 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
           className="relative overflow-hidden touch-pan-y select-none cursor-grab active:cursor-grabbing"
           style={{ height: theme.sizes.cardImageHeight }}
           onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={() => { dragStartX.current = null; dragStartY.current = null; }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
           onDragStart={(e) => e.preventDefault()}
           onClickCapture={handleClickCapture}
         >
