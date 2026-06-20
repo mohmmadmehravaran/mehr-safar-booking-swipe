@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Wifi, Car, UtensilsCrossed, Dumbbell, Waves, Coffee, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Hotel } from '../types';
@@ -46,6 +46,47 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
     setCurrent(i);
   };
 
+  // ── Touch / swipe support for mobile ("ورق زدن" با کشیدن انگشت) ──
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const swiped = useRef(false);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStartX.current = t.clientX;
+    touchStartY.current = t.clientY;
+    swiped.current = false;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX.current;
+    const dy = t.clientY - touchStartY.current;
+    touchStartX.current = null;
+    touchStartY.current = null;
+    const SWIPE_THRESHOLD = 40;
+    // Only a clearly horizontal drag counts as a swipe (so vertical scrolling still works).
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
+    if (images.length <= 1) return;
+    swiped.current = true; // mark so the following click does not open the hotel page
+    setCurrent((c) => {
+      const len = images.length;
+      // RTL: swipe left-to-right → previous image, right-to-left → next image.
+      const dir = dx > 0 ? -1 : 1;
+      return (Math.min(c, len - 1) + dir + len) % len;
+    });
+  };
+
+  // After a swipe the browser fires a click; cancel it so the <Link> doesn't navigate.
+  const handleClickCapture = (e: React.MouseEvent) => {
+    if (swiped.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      swiped.current = false;
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
@@ -62,7 +103,13 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
     >
       <Link to={`/hotel/${hotel.id}`} className="block">
         {/* Image carousel */}
-        <div className="relative overflow-hidden" style={{ height: theme.sizes.cardImageHeight }}>
+        <div
+          className="relative overflow-hidden touch-pan-y select-none"
+          style={{ height: theme.sizes.cardImageHeight }}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onClickCapture={handleClickCapture}
+        >
           {images.map((img, i) => (
             <img
               key={i}
@@ -70,6 +117,7 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
               alt={`تصویر ${i + 1} ${hotel.name} در ${hotel.city}`}
               loading="lazy"
               decoding="async"
+              draggable={false}
               className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-110 ${
                 i === safeCurrent ? 'opacity-100' : 'opacity-0'
               }`}
@@ -86,7 +134,7 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
                 type="button"
                 aria-label="تصویر بعدی"
                 onClick={(e) => go(e, 1)}
-                className="absolute top-1/2 left-2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 backdrop-blur-md shadow-lg flex items-center justify-center text-gray-700 opacity-0 group-hover:opacity-100 hover:bg-white transition-all z-10"
+                className="absolute top-1/2 left-2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 backdrop-blur-md shadow-lg flex items-center justify-center text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-white transition-all z-10"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -94,7 +142,7 @@ export default function HotelCard({ hotel, index = 0 }: HotelCardProps) {
                 type="button"
                 aria-label="تصویر قبلی"
                 onClick={(e) => go(e, -1)}
-                className="absolute top-1/2 right-2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 backdrop-blur-md shadow-lg flex items-center justify-center text-gray-700 opacity-0 group-hover:opacity-100 hover:bg-white transition-all z-10"
+                className="absolute top-1/2 right-2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 backdrop-blur-md shadow-lg flex items-center justify-center text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-white transition-all z-10"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
